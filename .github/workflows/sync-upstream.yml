@@ -1,9 +1,9 @@
-name: Scheduled Sync
+name: 自动更新
 
 on:
   schedule:
-    - cron: '0 0 * * *' # 每天 UTC 时间 0:00 运行一次
-  workflow_dispatch:   # 允许你随时在 Actions 界面手动触发同步
+    - cron: '0 0 * * *' # 每天 UTC 时间 0:00 运行
+  workflow_dispatch:   # 允许手动触发
 
 jobs:
   sync_latest_from_upstream:
@@ -12,15 +12,28 @@ jobs:
       - name: Checkout target repo
         uses: actions/checkout@v4
         with:
-          # 必须使用具有 push 权限的 token
-          # 默认的 GITHUB_TOKEN 在大多数情况下足够
+          # 直接使用内置变量，不需要手动填那个 AAABBB...
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0 # 必须设为 0 以获取所有历史记录进行合并
 
       - name: Sync upstream changes
-        id: sync
-        uses: aieri/sync-upstream-repo@v1.3.0
-        with:
-          upstream_repo: "oyz8/Godlike"
-          upstream_branch: "main"
-          target_branch: "main"
-          force: false # 如果你没有在 fork 仓库改动代码，建议设为 false 以防误删
+        run: |
+          # 1. 设置 git 用户信息
+          git config --global user.name 'GitHub Action'
+          git config --global user.email 'action@github.com'
+          
+          # 2. 添加原作者的仓库作为远程源 (需替换为你 fork 的那个原作者地址)
+          git remote add upstream https://github.com/oyz8/Godlike.git
+          
+          # 3. 拉取原作者仓库的所有分支信息
+          git fetch upstream
+          
+          # 4. 切换到你的 main 分支（如果你叫 master 请修改）
+          git checkout main
+          
+          # 5. 合并上游仓库的 main 分支
+          # --allow-unrelated-histories 防止历史记录不兼容
+          git merge upstream/main --allow-unrelated-histories
+          
+          # 6. 推送到你自己的仓库
+          git push origin main
