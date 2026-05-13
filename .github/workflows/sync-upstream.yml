@@ -1,47 +1,26 @@
-name: 自动同步上游更新
+name: Scheduled Sync
+
 on:
   schedule:
-    - cron: '0 0 * * *'
-  workflow_dispatch:
+    - cron: '0 0 * * *' # 每天 UTC 时间 0:00 运行一次
+  workflow_dispatch:   # 允许你随时在 Actions 界面手动触发同步
 
 jobs:
-  sync:
+  sync_latest_from_upstream:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - name: 检出代码
+      - name: Checkout target repo
         uses: actions/checkout@v4
         with:
-          ref: main
-          fetch-depth: 0
+          # 必须使用具有 push 权限的 token
+          # 默认的 GITHUB_TOKEN 在大多数情况下足够
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 配置Git
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "actions@github.com"
-
-      - name: 添加上游仓库
-        run: git remote add upstream https://github.com/oyz8/ByteNut.git
-
-      - name: 拉取上游更新
-        run: git fetch upstream
-
-      - name: 合并更新
-        id: merge
-        run: |
-          merge_output=$(git merge upstream/main --no-edit --allow-unrelated-histories)
-          echo "merge_result=$merge_output" >> $GITHUB_OUTPUT
-          echo "$merge_output"
-
-      - name: 推送更新
-        run: git push origin main
-
-      - name: PushPlus 同步成功通知
-        if: contains(steps.merge.outputs.merge_result, 'Fast-forward') || contains(steps.merge.outputs.merge_result, '更新') || contains(steps.merge.outputs.merge_result, 'changed')
-        uses: foxundermoon/wechat-pushplus@v2
+      - name: Sync upstream changes
+        id: sync
+        uses: aieri/sync-upstream-repo@v1.3.0
         with:
-          token: 7a8278dc72974977a03bb6b804155223
-          title: 同步上游成功
-          content: 已自动同步上游 Godlike 最新代码
+          upstream_repo: "oyz8/Godlike"
+          upstream_branch: "main"
+          target_branch: "main"
+          force: false # 如果你没有在 fork 仓库改动代码，建议设为 false 以防误删
